@@ -1,0 +1,3 @@
+Copyright 2021 Adobe (http://www.adobe.com/), with Reserved Font Name "Source".
+Noto CJK is licensed under the SIL Open Font License 1.1.
+Subset generated for ByteLab offline review surface; see https://github.com/notofonts/noto-cjk

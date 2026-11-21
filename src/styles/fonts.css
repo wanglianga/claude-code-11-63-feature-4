@@ -1,0 +1,13 @@
+/* Self-hosted subset keeps CJK rendering identical on machines without a
+ * Chinese system font (headless checks, Linux CI, thin containers). The face
+ * is Noto Sans CJK SC, licensed under OFL 1.1. Latin faces fall back to the
+ * platform UI font; the subset covers GB2312 plus the traditional repertoire. */
+
+@font-face {
+  font-family: 'ByteLab Sans';
+  src: url('/fonts/bytelab-cjk.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2E80-9FFF, U+3000-303F, U+FF00-FFEF, U+2000-206F, U+2190-21FF, U+25A0-27BF;
+}

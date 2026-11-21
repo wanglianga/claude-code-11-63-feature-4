@@ -1,0 +1,9 @@
+services:
+  bytelab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bytelab:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped
