@@ -103,6 +103,7 @@ describe('runs and versions', () => {
           marginThreshold: 0.08,
           maxCandidatesPerSegment: 6,
           includeUtf16: false,
+          layoutOrdering: 'geometric',
         },
         uniform: { strategy: 'uniform', segments: [], boundaryReviews: [], metrics: {} as never, elapsedMs: 0, notes: [] },
         segmented: { strategy: 'segmented', segments: [], boundaryReviews: [], metrics: {} as never, elapsedMs: 0, notes: [] },
@@ -111,6 +112,7 @@ describe('runs and versions', () => {
         comparisonRows: [],
         createdAt: '2026-01-01T00:00:01.000Z',
         engine: 'test',
+        layout: null,
       },
     });
     expect(await listRuns(importId)).toHaveLength(1);
@@ -133,6 +135,7 @@ describe('runs and versions', () => {
         boundaryReviews: [],
         boundaryAcknowledgements: {},
         superseded: [],
+        layout: null,
       },
       ops: [],
       superseded: [],

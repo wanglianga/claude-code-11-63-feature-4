@@ -12,7 +12,11 @@ import { sha256Hex } from './util/sha256';
 import { canonicalJson, makeId } from './util/bytes';
 
 export const DB_NAME = 'bytelab';
-export const DB_VERSION = 1;
+// v2: repair versions gained the layout anchor/field snapshot. Existing
+// object stores are reused unchanged — the upgrade only guards older
+// browsers where a store may be missing; no data migration is needed because
+// layout data is an optional, additive field on the stored records.
+export const DB_VERSION = 2;
 
 interface ByteLabDB extends DBSchema {
   imports: {

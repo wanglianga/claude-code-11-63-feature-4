@@ -5,3 +5,4 @@ big5-monograph.txt	568	d751dc86ca2b700c397dff70eaf05f20f9abfa3ba9960901b9c5e7bf8
 gbk-dosage-table.txt	545	e1d556e48e0a4c741fcc37bf1a5106ef91c2706c1ac3c63b87ed468b829799ef	GBK 剂量表，含截断双字节与剂量/括号边界，演示边界断裂必须停在待裁决
 utf8-with-bad-bytes.txt	494	a72511b698fbb99a1856f085bc6a91c6e3fd993fcc1dfd000e10105f245dd6de	UTF-8 + BOM 与少量非法/截断字节，验证“不凭常用词删除不可解字节”
 boundary-fracture.txt	255	eb605b0c701145710e611c379d8a958d3f7c9fdac7a6acc7f1b8b2345f2d9e2a	剂量单位“mg/kg”跨在 GBK/UTF-8 切换边界上，验证组合置信度下调与待裁决
+layout-complex-page.txt	2944	bf9bbab64e345b0d0135c9e1670ed3bd5b09154b874ff8432b5914d7d8dc943b	双栏/表格/脚注/OCR重复行/否定词跨列/行竞争/跨栏行的版面定位样例

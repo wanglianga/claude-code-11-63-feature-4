@@ -1,0 +1,56 @@
+-- bytelab-layout:v1 pages=1 width=800 height=1120 direction=ltr --
+@@page n=1
+@@block id=B1 role=title col=0 section= x=60 y=40 w=680 h=44
+@@ocr id=L0 x=60 y=46 w=680 h=32 conf=0.97
+阿托伐他汀钙片电子说明书（扫描归档版 · 第1页）
+@@block id=B2 role=heading col=0 section=用法用量 x=60 y=104 w=300 h=28
+@@ocr id=Lh1 x=60 y=106 w=300 h=24 conf=0.96
+【用法用量】
+@@block id=B3 role=column col=0 section=用法用量 x=60 y=138 w=300 h=210
+@@ocr id=L1 x=64 y=150 w=292 h=24 conf=0.96
+成人及12岁以上儿童：每次10 mg，每日一次，口服。
+@@ocr id=L2 x=64 y=178 w=292 h=24 conf=0.95
+儿童按体重给药，单次0.5 g，分两次服用。
+@@ocr id=L3 x=64 y=206 w=292 h=24 conf=0.94
+给药方案见3类人群调整，餐后服用。
+@@ocr id=L4 x=64 y=234 w=292 h=24 conf=0.95
+肾功能不全患者无需调整给药间隔。
+@@block id=B4 role=table col=0 section=用法用量 x=60 y=372 w=680 h=150
+@@ocr id=L5 x=64 y=388 w=672 h=24 conf=0.93
+| 人群 | 起始剂量 | 维持剂量 | 给药频次 |
+@@ocr id=L5dup x=66 y=390 w=670 h=24 conf=0.81 dup=L5
+| 人群 | 起始剂量 | 维持剂量 | 给药频次 |
+@@ocr id=L6 x=64 y=418 w=672 h=24 conf=0.95
+| 成人 | 0.5 g | 1.0～2.0 g | 每日一次 |
+@@ocr id=L7 x=64 y=446 w=672 h=24 conf=0.94
+| 老年患者 | 0.25 g | 0.5 g | 每日一次 |
+@@ocr id=L8 x=64 y=474 w=672 h=24 conf=0.92
+| 肾功能不全 | 不用 | 按eGFR调整 | 见注意事项 |
+@@block id=B5 role=footnote col=0 section=注意事项 x=60 y=548 w=680 h=64
+@@ocr id=L9 x=64 y=558 w=672 h=22 conf=0.9
+注1：老年患者起始剂量可减至0.25 g，具体遵医嘱。
+@@ocr id=L10 x=64 y=584 w=672 h=22 conf=0.9
+注2：本表剂量以活性成分计，不含辅料重量。
+@@block id=B6 role=column col=1 section=禁忌 x=420 y=104 w=320 h=240
+@@ocr id=L11 x=424 y=106 w=312 h=24 conf=0.96
+【禁忌】
+@@ocr id=L12 x=424 y=134 w=312 h=24 conf=0.95
+对本品活性成分过敏者禁用。
+@@ocr id=L13 x=424 y=162 w=312 h=24 conf=0.95
+不得用于肌内注射，仅可静脉滴注。
+@@ocr id=L14 x=424 y=190 w=312 h=24 conf=0.94
+严重肝肾功能不全者禁用，单次剂量不得超过0.25 g。
+@@block id=B7 role=column col=1 section=注意事项 x=420 y=372 w=320 h=120
+@@ocr id=L15 x=424 y=384 w=312 h=24 conf=0.95
+【注意事项】
+@@ocr id=L16 x=424 y=412 w=312 h=24 conf=0.94
+用药期间应监测肾功能与凝血功能。
+@@block id=B8 role=paragraph col=0 section=注意事项 x=60 y=640 w=680 h=120
+@@ocr id=L17 x=64 y=664 w=672 h=24 conf=0.9
+本页跨栏提示：剂量调整须结合左右两栏阅读。
+@@ocr id=L18 x=420 y=700 w=320 h=24 conf=0.9
+（扫描行A）肝功能异常者慎用。
+@@ocr id=L19 x=422 y=701 w=318 h=24 conf=0.88
+（扫描行B）肝功能异常者需减量。
+@@ocr id=L20 x=300 y=262 w=220 h=24 conf=0.86
+（跨栏行）本页内容分左右两栏排列，请按栏阅读。

@@ -346,6 +346,7 @@ function SegmentPreview({ bundle }: { bundle: AnalysisBundle }) {
           boundaryReviews: result.boundaryReviews,
           boundaryAcknowledgements: {},
           superseded: [],
+          layout: null,
         }}
         totalBytes={bundle.byteLength}
         activeId={null}

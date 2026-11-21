@@ -13,6 +13,11 @@ import { encodingLabel } from '../encoding/specs';
 import { buildCandidates } from './candidates';
 import { evaluateBoundaries } from './boundaries';
 import { segmentFile, type RawSegment } from './segmenter';
+import {
+  referenceSegmentsFromAnalysis,
+  runLayout,
+  structureTextFromSegments,
+} from '../layout/engine';
 
 export interface AnalysisInput {
   bytes: Uint8Array;
@@ -343,6 +348,16 @@ export function runAnalysis(input: AnalysisInput): AnalysisBundle {
   const uniform = runUniform(bytes, params);
   const segmented = runSegmented(bytes, params);
   const { strategy, rationale } = recommend(uniform, segmented);
+  // The layout layer works on the segmented (richest) candidate view: every
+  // byte keeps its segment attribution, and mixed encodings decode correctly
+  // because each segment contributes its own winning glyph stream.
+  const layoutSegments = referenceSegmentsFromAnalysis(segmented.segments);
+  const layout = runLayout({
+    text: structureTextFromSegments(layoutSegments),
+    segments: layoutSegments,
+    ordering: params.layoutOrdering,
+    now: input.now ?? new Date().toISOString(),
+  });
   return {
     digest: input.digest,
     byteLength: bytes.length,
@@ -354,6 +369,7 @@ export function runAnalysis(input: AnalysisInput): AnalysisBundle {
     comparisonRows: compareStrategies(uniform, segmented),
     createdAt: input.now ?? new Date().toISOString(),
     engine: 'bytelab-engine/1.0',
+    layout,
   };
 }
 

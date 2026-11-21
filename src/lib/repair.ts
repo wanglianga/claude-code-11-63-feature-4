@@ -18,6 +18,12 @@ import { analyzeRange } from './analysis/analyze';
 import { evaluateBoundaries } from './analysis/boundaries';
 import { canonicalJson, excerpt, makeId } from './util/bytes';
 import { sha256Hex } from './util/sha256';
+import {
+  adjudicateQueueItem,
+  assembleModel,
+  recropAnchor,
+  referenceSegmentsFromState,
+} from './layout/engine';
 
 /* ------------------------------------------------------------------------ */
 /* State construction                                                       */
@@ -62,6 +68,10 @@ export function createInitialState(bundle: AnalysisBundle, strategy: 'uniform' |
     boundaryReviews: result.boundaryReviews.map((r) => ({ ...r })),
     boundaryAcknowledgements: {},
     superseded: [],
+    // The layout model is content-addressed and survives a strategy choice:
+    // its byte ranges refer to absolute file offsets, which are identical
+    // under either strategy. Anchor revisions live inside the model.
+    layout: bundle.layout ? JSON.parse(JSON.stringify(bundle.layout)) : null,
   };
   linkBoundaryRisks(state);
   return state;
@@ -317,6 +327,10 @@ function describeOp(op: VersionOp): string {
       return `撤销符号裁决 ${op.symbolId}`;
     case 'acknowledge-boundary':
       return `确认边界风险 ${op.reviewId}（${op.boundary}）`;
+    case 'recrop-anchor':
+      return `重新裁剪版面锚点 ${op.blockId}（${op.pageId}）`;
+    case 'adjudicate-layout-review':
+      return `版面复核裁决 ${op.queueId}：${op.decision === 'confirmed' ? '确认定位' : '驳回定位'}`;
     case 'add-note':
       return `备注：${op.text}`;
     default:
@@ -442,6 +456,9 @@ export function moveBoundary(
   next.boundaries = next.segments.slice(0, -1).map((s) => s.end);
   next.superseded = [...next.superseded, ...superseded];
   recomputeBoundaries(next);
+  // Byte ranges changed: re-localize OCR lines and fields onto the rebuilt
+  // segments while keeping adjudications by their content-addressed ids.
+  refreshLayout(next);
 
   return {
     state: next,
@@ -472,6 +489,9 @@ export function selectCandidate(state: RepairState, segmentId: string, candidate
   seg.confidence = Math.max(seg.confidence, seg.analysisConfidence);
   seg.reasons = [];
   recomputeBoundaries(next);
+  // The repaired text changed: OCR lines and key fields must be re-localized
+  // against the new glyph stream. Human adjudications survive by queue id.
+  refreshLayout(next);
   return next;
 }
 
@@ -566,6 +586,108 @@ export function addNote(state: RepairState, target: string, text: string, versio
 }
 
 /* ------------------------------------------------------------------------ */
+/* Layout anchor operations                                                 */
+/* ------------------------------------------------------------------------ */
+
+/** Reassemble the layout model against the current segment selections. */
+export function refreshLayout(state: RepairState, now?: string): void {
+  if (!state.layout) return;
+  const segments = referenceSegmentsFromState(state.segments);
+  // Reuse the model's own createdAt so re-assembling over the same version is
+  // idempotent (the version timestamp already records wall-clock time); this
+  // keeps operation replay byte-for-byte deterministic. Anchor revisions are
+  // carried forward from the prior model inside assembleModel.
+  state.layout = assembleModel(state.layout.pages, state.layout.ocrLines, segments, {
+    now: now ?? state.layout.createdAt,
+    ordering: state.layout.ordering,
+    prior: state.layout,
+  });
+}
+
+/**
+ * Re-crop a page region. Old geometry, image digest and prior human decisions
+ * are preserved on the anchor revision; affected review items return to the
+ * open queue and every alignment/field is re-validated against the new anchor.
+ */
+export function recropLayoutAnchor(
+  state: RepairState,
+  input: {
+    pageId: string;
+    blockId: string;
+    newRect: import('../types').Rect;
+    note: string;
+    versionId: string;
+    seq: number;
+    now?: string;
+  },
+): { state: RepairState; op: Extract<VersionOp, { type: 'recrop-anchor' }> } {
+  const next = cloneState(state);
+  if (!next.layout) throw new Error('当前版本没有版面锚点数据');
+  const now = input.now ?? new Date().toISOString();
+  const before = next.layout;
+  next.layout = recropAnchor(before, referenceSegmentsFromState(next.segments), {
+    pageId: input.pageId,
+    blockId: input.blockId,
+    newRect: input.newRect,
+    note: input.note,
+    versionId: input.versionId,
+    now,
+  });
+
+  // Prior confirmations become historical evidence only. The new anchor
+  // revision is appended inside recropAnchor onto layout.anchorRevisions.
+  const revision = next.layout.anchorRevisions[next.layout.anchorRevisions.length - 1];
+  const superseded: SupersededEntry[] = revision.priorDecisions.map((d) => ({
+    id: makeId('sup', true),
+    atVersionId: input.versionId,
+    atSeq: input.seq,
+    kind: 'anchor-recrop',
+    segmentRange: [0, 0],
+    segmentId: input.blockId,
+    summary: `重新裁剪 ${input.blockId} 后，旧确认“${d.note}”仅保留为历史证据`,
+    oldStatus: d.decision,
+    note: input.note,
+  }));
+  next.superseded = [...next.superseded, ...superseded];
+
+  const op: Extract<VersionOp, { type: 'recrop-anchor' }> = {
+    type: 'recrop-anchor',
+    pageId: input.pageId,
+    blockId: input.blockId,
+    revisionId: revision.id,
+    newRect: { ...input.newRect },
+    oldImageDigest: revision.oldImageDigest.sha256,
+    newImageDigest: revision.newImageDigest.sha256,
+    superseded,
+    note: input.note,
+  };
+  return { state: next, op };
+}
+
+/** Record a human confirmed/rejected decision on a high-risk review item. */
+export function adjudicateLayoutReview(
+  state: RepairState,
+  queueId: string,
+  decision: 'confirmed' | 'rejected',
+  note: string,
+  versionId: string,
+  now = new Date().toISOString(),
+): { state: RepairState; op: Extract<VersionOp, { type: 'adjudicate-layout-review' }> } {
+  const next = cloneState(state);
+  if (!next.layout) throw new Error('当前版本没有版面复核数据');
+  const previous = next.layout.adjudications[queueId] ?? null;
+  next.layout = adjudicateQueueItem(next.layout, queueId, decision, note, versionId, now);
+  const op: Extract<VersionOp, { type: 'adjudicate-layout-review' }> = {
+    type: 'adjudicate-layout-review',
+    queueId,
+    decision,
+    note,
+    previous,
+  };
+  return { state: next, op };
+}
+
+/* ------------------------------------------------------------------------ */
 /* Status summary                                                           */
 /* ------------------------------------------------------------------------ */
 
@@ -577,6 +699,10 @@ export interface VersionSummary {
   unresolvedResolved: number;
   unacknowledgedHigh: number;
   unacknowledgedMedium: number;
+  /** High-risk layout localizations still waiting in the review queue. */
+  layoutQueueOpen: number;
+  /** Key fields whose region/section evidence is not fully verified. */
+  layoutFieldsAtRisk: number;
   blocked: boolean;
   blockingReasons: string[];
 }
@@ -601,10 +727,13 @@ export function summarizeVersion(version: RepairVersion): VersionSummary {
   const unacked = state.boundaryReviews.filter((r) => !r.acknowledged);
   const high = unacked.filter((r) => r.severity === 'high').length;
   const medium = unacked.filter((r) => r.severity === 'medium').length;
+  const layoutQueueOpen = state.layout?.reviewQueue.filter((q) => q.status === 'queued').length ?? 0;
+  const layoutFieldsAtRisk = state.layout?.fields.filter((f) => f.status !== 'verified').length ?? 0;
   const blockingReasons: string[] = [];
   if (high > 0) blockingReasons.push(`${high} 处高风险边界未确认（药名/剂量/括号可能断裂）`);
   if (pending > 0) blockingReasons.push(`${pending} 个区段停在待裁决`);
   if (open > 0) blockingReasons.push(`${open} 个不可解符号未裁决`);
+  if (layoutQueueOpen > 0) blockingReasons.push(`${layoutQueueOpen} 项高风险版面定位停在复核队列`);
   return {
     pending,
     suggested,
@@ -613,6 +742,8 @@ export function summarizeVersion(version: RepairVersion): VersionSummary {
     unresolvedResolved: resolved,
     unacknowledgedHigh: high,
     unacknowledgedMedium: medium,
+    layoutQueueOpen,
+    layoutFieldsAtRisk,
     blocked: blockingReasons.length > 0,
     blockingReasons,
   };
@@ -649,6 +780,7 @@ function applyOp(state: RepairState, op: VersionOp, params: AnalysisParams): Rep
         seg.status = 'suggested';
       }
       recomputeBoundaries(next);
+      refreshLayout(next);
       return next;
     }
     case 'move-boundary': {
@@ -661,6 +793,36 @@ function applyOp(state: RepairState, op: VersionOp, params: AnalysisParams): Rep
         next.boundaries = next.segments.slice(0, -1).map((s) => s.end);
       }
       recomputeBoundaries(next);
+      refreshLayout(next);
+      return next;
+    }
+    case 'recrop-anchor': {
+      const next = cloneState(state);
+      if (next.layout) {
+        next.layout = recropAnchor(next.layout, referenceSegmentsFromState(next.segments), {
+          pageId: op.pageId,
+          blockId: op.blockId,
+          newRect: op.newRect,
+          note: op.note,
+          versionId: 'replay',
+          now: 'replay',
+        });
+        next.superseded = [...next.superseded, ...op.superseded.map((s) => ({ ...s }))];
+      }
+      return next;
+    }
+    case 'adjudicate-layout-review': {
+      const next = cloneState(state);
+      if (next.layout) {
+        next.layout = adjudicateQueueItem(
+          next.layout,
+          op.queueId,
+          op.decision,
+          op.note,
+          'replay',
+          'replay',
+        );
+      }
       return next;
     }
     case 'resolve-symbol': {

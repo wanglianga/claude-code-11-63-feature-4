@@ -35,6 +35,7 @@ export function exportVersion(
   const manifest = buildManifest(version, record, originalBytes, repairedText, summary, options);
   const manifestText = JSON.stringify(manifest, null, 2);
   const evidenceText = buildEvidence(version, originalBytes);
+  const layoutText = version.state.layout ? JSON.stringify(version.state.layout, null, 2) : '';
   const readmeText = buildReadme(version, record, summary);
 
   const files: Zippable = {};
@@ -42,6 +43,9 @@ export function exportVersion(
   files[`${base}/repaired.txt`] = str(utf8Encode(repairedText));
   files[`${base}/evidence.md`] = str(utf8Encode(evidenceText));
   files[`${base}/README.txt`] = str(utf8Encode(readmeText));
+  if (version.state.layout) {
+    files[`${base}/layout.json`] = str(utf8Encode(layoutText));
+  }
   if (options.includeOriginalBytes) {
     files[`${base}/original.bin`] = str(originalBytes);
     files[`${base}/original.sha256`] = str(utf8Encode(`${sha256Hex(originalBytes)}  original.bin\n`));
@@ -132,6 +136,53 @@ function buildManifest(
     symbolResolutions: Object.values(version.state.symbolResolutions),
     notes: version.state.notes,
     superseded: version.superseded,
+    layout: version.state.layout
+      ? {
+          schema: version.state.layout.schema,
+          engine: version.state.layout.engine,
+          ordering: version.state.layout.ordering,
+          metrics: version.state.layout.metrics,
+          pages: version.state.layout.pages.map((p) => ({
+            id: p.id,
+            pageNumber: p.pageNumber,
+            pageSize: p.pageSize,
+            direction: p.direction,
+            columnGutters: p.columnGutters,
+            imageDigestSha256: p.imageDigest.sha256,
+            blocks: p.blocks.map((b) => ({
+              id: b.id,
+              pageNumber: b.pageNumber,
+              role: b.role,
+              section: b.section,
+              sectionId: b.sectionId,
+              rect: b.rect,
+              column: b.column,
+              order: b.order,
+              spansColumns: b.spansColumns,
+              prevBlockId: b.prevBlockId,
+              nextBlockId: b.nextBlockId,
+              imageDigestSha256: b.imageDigest.sha256,
+            })),
+          })),
+          alignments: version.state.layout.alignments.map((a) => ({
+            id: a.id,
+            ocrLineId: a.ocrLineId,
+            pageId: a.pageId,
+            byteRange: a.byteRange,
+            segmentId: a.segmentId,
+            candidateBlockIds: a.candidateBlockIds,
+            overlapScores: a.overlapScores,
+            status: a.status,
+            flags: a.flags,
+            competingLineIds: a.competingLineIds,
+          })),
+          fields: version.state.layout.fields,
+          issues: version.state.layout.issues,
+          reviewQueue: version.state.layout.reviewQueue,
+          adjudications: Object.values(version.state.layout.adjudications),
+          anchorRevisions: version.state.layout.anchorRevisions,
+        }
+      : null,
     operations: version.ops.map((op, i) => ({
       index: i,
       type: op.type,
@@ -235,6 +286,29 @@ function buildEvidence(version: RepairVersion, originalBytes: Uint8Array): strin
     }
     lines.push('');
   }
+  const layout = version.state.layout;
+  if (layout) {
+    lines.push('## 版面锚点与关键字段定位');
+    lines.push(`- 排序规则：${layout.ordering === 'linear' ? '线性（上到下、左到右）' : '几何约束'}；页面 ${layout.metrics.pageCount} · 区块 ${layout.metrics.blockCount} · OCR 行 ${layout.metrics.ocrLineCount}`);
+    lines.push(`- 对齐：已对齐 ${layout.metrics.alignedLines} · 重叠待核 ${layout.metrics.ambiguousLines} · 跨列待核 ${layout.metrics.spanningLines} · 未定位 ${layout.metrics.unplacedLines}`);
+    lines.push(`- 字段：共 ${layout.metrics.fieldCount}，待核/未定位 ${layout.metrics.fieldsAtRisk}；高风险问题 ${layout.metrics.highRiskIssues}；复核队列待处理 ${layout.metrics.reviewQueueSize}`);
+    lines.push('');
+    lines.push('### 字段证据（可回查页面区域；裸数字不会被当作剂量）');
+    for (const f of layout.fields) {
+      lines.push(
+        `- [${f.status}] ${f.kind} “${f.text}” · 字节 ${f.byteRange[0]}–${f.byteRange[1]} · 章节「${f.section || '无'}」 · 区域 ${f.blockId ? `p${f.pageNumber}/${f.blockId}` : '无区域'}${f.reasons.length ? ` · ${f.reasons.join('；')}` : ''}`,
+      );
+    }
+    lines.push('');
+    lines.push('### 高风险复核与锚点修订');
+    for (const q of layout.reviewQueue) {
+      lines.push(`- 复核 ${q.id} · ${q.status} · 区块 ${q.blockId ?? '—'} · 问题 ${q.issueIds.join('、')}${q.decisionNote ? ` · 裁决：${q.decisionNote}` : ''}`);
+    }
+    for (const r of layout.anchorRevisions) {
+      lines.push(`- 重裁剪 ${r.blockId}：${r.oldImageDigest.sha256.slice(0, 12)}… → ${r.newImageDigest.sha256.slice(0, 12)}…；旧确认保留 ${r.priorDecisions.length} 条；理由：${r.note}`);
+    }
+    lines.push('');
+  }
   return lines.join('\n');
 }
 
@@ -252,9 +326,10 @@ function buildReadme(
     `导出时间：${version.createdAt}`,
     '',
     '包内文件：',
-    '  manifest.json  完整机器可读清单（字节范围、候选、评分、边界、操作历史）',
+    '  manifest.json  完整机器可读清单（字节范围、候选、评分、边界、操作历史、版面定位）',
     '  repaired.txt   修复后的 UTF-8 文本（未裁决符号以占位符保留）',
-    '  evidence.md    人类可读的解码证据，可从修复版本回查原字节范围',
+    '  evidence.md    人类可读的解码与版面证据，可从修复版本回查原字节与页面区域',
+    '  layout.json    版面锚点、OCR 行对齐、字段证据、一致性问题与复核状态（若有版面数据）',
     '  original.bin   原始字节（内容可寻址，可用 SHA-256 校验）',
     '  original.sha256 原始文件摘要',
     '',

@@ -4,6 +4,7 @@ import { App } from './components/App';
 import './styles/fonts.css';
 import './styles/global.css';
 import './styles/ui.css';
+import './styles/layout.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('#root not found');

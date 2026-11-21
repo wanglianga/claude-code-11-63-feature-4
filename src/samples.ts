@@ -35,6 +35,11 @@ export const SAMPLE_LIST: SampleSpec[] = [
     note: '剂量单位跨在 GBK/UTF-8 切换边界上',
     blurb: '两侧各自可读，只有边界检测能发现药名/单位断裂，并降级为待裁决。',
   },
+  {
+    name: 'layout-complex-page.txt',
+    note: '双栏 + 表格 + 脚注 + OCR 重复行 + 否定词跨列',
+    blurb: '验证版面锚点、行对齐、字段定位与一致性复核：竞争/跨栏行停在重叠待核，跨章节否定语不得拼成禁忌。',
+  },
 ];
 
 export async function fetchSampleBytes(name: string): Promise<Uint8Array> {

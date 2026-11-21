@@ -8,6 +8,7 @@ import {
   HardDrive,
   HelpCircle,
   Library,
+  Map as MapIcon,
   ShieldCheck,
   Trash2,
   Wrench,
@@ -19,6 +20,7 @@ import { formatBytes } from '../lib/util/bytes';
 import { LibraryView } from './LibraryView';
 import { DiagnoseView } from './DiagnoseView';
 import { RepairView } from './RepairView';
+import { LayoutView } from './LayoutView';
 import { ArchiveView } from './ArchiveView';
 import { summarizeVersion } from '../lib/repair';
 
@@ -26,7 +28,8 @@ const NAV: { id: ViewId; label: string; icon: React.ReactNode; step: string }[] 
   { id: 'library', label: '导入记录', icon: <Library size={16} />, step: '01' },
   { id: 'diagnose', label: '编码诊断', icon: <FlaskConical size={16} />, step: '02' },
   { id: 'repair', label: '修复工作区', icon: <Wrench size={16} />, step: '03' },
-  { id: 'archive', label: '归档与导出', icon: <Archive size={16} />, step: '04' },
+  { id: 'layout', label: '版面定位', icon: <MapIcon size={16} />, step: '04' },
+  { id: 'archive', label: '归档与导出', icon: <Archive size={16} />, step: '05' },
 ];
 
 export function App() {
@@ -84,6 +87,9 @@ export function App() {
                   )}
                   {item.id === 'archive' && version && (
                     <span className="nav-badge">v{version.seq}</span>
+                  )}
+                  {item.id === 'layout' && summary && summary.layoutQueueOpen > 0 && (
+                    <span className="nav-badge">{summary.layoutQueueOpen}</span>
                   )}
                 </>
               )}
@@ -185,6 +191,7 @@ export function App() {
           {view === 'library' && <LibraryView />}
           {view === 'diagnose' && <DiagnoseView />}
           {view === 'repair' && <RepairView />}
+          {view === 'layout' && <LayoutView />}
           {view === 'archive' && <ArchiveView />}
         </div>
       </main>
@@ -251,7 +258,10 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
               <b>修复</b>：逐段切换候选、处理未决符号、重定义边界。相邻区段采用不同候选后若药名/剂量单位/括号跨边界断裂，会降低组合置信度并停在待裁决。
             </li>
             <li>
-              <b>版本</b>：每次操作生成新版本，旧裁决只在边界重定义后保留为历史。可从修复版本回查原字节范围与解码证据。
+              <b>版面定位</b>：页面解析保存页码、区块坐标、阅读方向与图像摘要；OCR 行与修复字节区段映射到候选区块，竞争或跨列行停在重叠/跨列待核。字段抽取覆盖剂量、频次、单位、禁忌否定语与适用人群，裸数字不会被当作剂量；跨章节否定语不会与剂量拼成禁忌，仅高风险定位进入复核队列。重新裁剪区域后旧确认留作历史、新锚点重新校验。
+            </li>
+            <li>
+              <b>版本</b>：每次操作生成新版本，旧裁决只在边界重定义或锚点重裁剪后保留为历史。可从修复版本回查原字节范围、页面区域与解码证据。
             </li>
             <li>
               <b>归档导出</b>：导出确定性 ZIP（manifest、修复文本、证据、README、原始字节），可复现校验哈希。

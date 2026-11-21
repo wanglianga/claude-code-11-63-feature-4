@@ -12,7 +12,7 @@ import type {
 import { createStore } from '../lib/util/store';
 import { DEFAULT_PARAMS } from '../lib/encoding/specs';
 
-export type ViewId = 'library' | 'diagnose' | 'repair' | 'archive';
+export type ViewId = 'library' | 'diagnose' | 'repair' | 'layout' | 'archive';
 
 export interface Toast {
   id: string;
@@ -132,6 +132,10 @@ export function describeOp(op: VersionOp): string {
       return '撤销符号裁决';
     case 'acknowledge-boundary':
       return '确认边界风险';
+    case 'recrop-anchor':
+      return '重新裁剪版面锚点';
+    case 'adjudicate-layout-review':
+      return op.decision === 'confirmed' ? '确认版面定位' : '驳回版面定位';
     case 'add-note':
       return '添加备注';
     default:

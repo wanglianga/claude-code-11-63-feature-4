@@ -3,6 +3,7 @@ import type {
   ImportInput,
   ImportRecord,
   RepairState,
+  Rect,
   VersionOp,
 } from '../types';
 import {
@@ -27,6 +28,8 @@ import {
   clearSymbolResolution,
   acknowledgeBoundary,
   addNote as addNoteState,
+  recropLayoutAnchor,
+  adjudicateLayoutReview,
 } from '../lib/repair';
 import { exportVersion, DEFAULT_EXPORT_OPTIONS } from '../lib/export';
 import { verifyVersion } from '../lib/repair';
@@ -355,6 +358,66 @@ export async function addNote(target: string, text: string): Promise<void> {
     (base) => addNoteState(base, target, text, 'pending'),
   );
   toast('success', '备注已记录');
+}
+
+/** Re-crop a page region; old confirmations stay as history, anchors revalidate. */
+export async function recropAnchor(
+  pageId: string,
+  blockId: string,
+  newRect: Rect,
+  note: string,
+): Promise<void> {
+  if (!note.trim()) {
+    toast('warn', '请填写重新裁剪理由', '重新裁剪必须记录人工依据。');
+    return;
+  }
+  const state = appStore.get();
+  const importId = state.selectedImportId;
+  if (!importId || !state.currentState?.layout) return;
+  const parentList = state.versions[importId] ?? [];
+  const parent = parentList[parentList.length - 1] ?? null;
+  const seq = (parent?.seq ?? 0) + 1;
+  const versionId = makeId('pending', true);
+  try {
+    const result = recropLayoutAnchor(state.currentState, {
+      pageId,
+      blockId,
+      newRect,
+      note,
+      versionId,
+      seq,
+    });
+    await persistVersion(result.op, `重新裁剪锚点 ${blockId}`, () => ({ state: result.state, op: result.op }));
+    const openCount = result.state.layout?.reviewQueue.filter((q) => q.status === 'queued').length ?? 0;
+    toast('info', '锚点已重新裁剪', `旧确认保留为历史证据；受影响定位已重新校验，当前 ${openCount} 项在复核队列。`);
+  } catch (err) {
+    toast('error', '重新裁剪失败', err instanceof Error ? err.message : String(err));
+  }
+}
+
+/** Confirm or reject a high-risk layout review item. */
+export async function adjudicateLayout(
+  queueId: string,
+  decision: 'confirmed' | 'rejected',
+  note: string,
+): Promise<void> {
+  if (!note.trim()) {
+    toast('warn', '请填写裁决说明', '版面复核必须记录人工判断依据。');
+    return;
+  }
+  const state = appStore.get();
+  if (!state.currentState?.layout) return;
+  try {
+    const result = adjudicateLayoutReview(state.currentState, queueId, decision, note, makeId('pending', true));
+    await persistVersion(
+      result.op,
+      decision === 'confirmed' ? `确认版面定位 ${queueId}` : `驳回版面定位 ${queueId}`,
+      () => ({ state: result.state, op: result.op }),
+    );
+    toast('success', decision === 'confirmed' ? '版面定位已确认' : '版面定位已驳回', note);
+  } catch (err) {
+    toast('error', '版面复核裁决失败', err instanceof Error ? err.message : String(err));
+  }
 }
 
 export function updateParams(patch: Partial<AnalysisParams>): void {

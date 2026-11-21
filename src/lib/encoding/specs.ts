@@ -80,6 +80,7 @@ export const DEFAULT_PARAMS: AnalysisParams = {
   marginThreshold: 0.08,
   maxCandidatesPerSegment: 6,
   includeUtf16: false,
+  layoutOrdering: 'geometric',
 };
 
 export function candidateEncodings(params: AnalysisParams): EncodingId[] {
